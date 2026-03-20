@@ -1,6 +1,6 @@
 # Image Pipeline Frontend
 
-Frontend for [image-pipeline](https://github.com/yourusername/image-pipeline) — an image processing platform with presigned S3 uploads, real-time compression, pixel-level transforms (grayscale, sepia, blur, sharpen, invert), and per-user storage quotas.
+Frontend for [image-pipeline](https://github.com/Parinita789/image-pipeline) — an image processing platform with presigned S3 uploads, real-time compression, pixel-level transforms (grayscale, sepia, blur, sharpen, invert), and per-user storage quotas.
 
 > This frontend was written by Claude (Anthropic) as a companion to the Go backend, purely to provide a visual interface for testing and using the API.
 
