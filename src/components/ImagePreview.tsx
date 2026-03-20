@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { Image } from "../types";
 
 interface ImagePreviewProps {
@@ -9,7 +9,9 @@ interface ImagePreviewProps {
 }
 
 export default function ImagePreview({ image, onClose, onPrev, onNext }: ImagePreviewProps) {
-  const src = image.compressedUrl || image.originalUrl;
+  const hasTransform = !!image.transformedUrl;
+  const [showOriginal, setShowOriginal] = useState(false);
+  const src = hasTransform && !showOriginal ? image.transformedUrl! : (image.compressedUrl || image.originalUrl);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -73,8 +75,31 @@ export default function ImagePreview({ image, onClose, onPrev, onNext }: ImagePr
           </div>
         )}
 
-        {/* Filename */}
+        {/* Filename + transforms */}
         <p className="mt-3 text-sm text-white/70 truncate max-w-md">{image.filename}</p>
+        {image.transformations && image.transformations.length > 0 && (
+          <div className="flex items-center gap-2 mt-2">
+            {image.transformations.map((t) => (
+              <span key={t} className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/80 font-medium">{t}</span>
+            ))}
+          </div>
+        )}
+        {hasTransform && (
+          <div className="flex gap-3 mt-2">
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowOriginal(false); }}
+              className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${!showOriginal ? "bg-white/20 text-white" : "text-white/50 hover:text-white/80"}`}
+            >
+              Edited
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowOriginal(true); }}
+              className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${showOriginal ? "bg-white/20 text-white" : "text-white/50 hover:text-white/80"}`}
+            >
+              Original
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

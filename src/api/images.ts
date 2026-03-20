@@ -1,6 +1,6 @@
 import api from "./axios";
 import axios from "axios";
-import type { APIResponse, PaginatedImages } from "../types";
+import type { APIResponse, Image, PaginatedImages, StorageInfo } from "../types";
 
 export async function getImages(page = 1, limit = 12, search = "", status = "") {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) });
@@ -63,5 +63,24 @@ export async function batchDeleteImages(ids: string[]) {
   const res = await api.delete<APIResponse<{ deleted: string[]; failed: string[] }>>("/images", {
     data: { ids },
   });
+  return res.data.data;
+}
+
+// ─── Transforms ─────────────────────────────────────────────────────────────
+
+export async function transformImage(imageId: string, transformations: string[]) {
+  const res = await api.post<APIResponse<Image>>(`/images/${imageId}/transform`, { transformations });
+  return res.data;
+}
+
+export async function cancelTransform(imageId: string) {
+  const res = await api.post<APIResponse<null>>(`/images/${imageId}/cancel-transform`);
+  return res.data;
+}
+
+// ─── Storage ────────────────────────────────────────────────────────────────
+
+export async function getStorageInfo() {
+  const res = await api.get<APIResponse<StorageInfo>>("/storage");
   return res.data.data;
 }

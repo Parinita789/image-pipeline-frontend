@@ -11,6 +11,7 @@ export function useDeleteImages() {
         : batchDeleteImages(ids),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["images"] });
+      queryClient.invalidateQueries({ queryKey: ["storage"] });
     },
   });
 }

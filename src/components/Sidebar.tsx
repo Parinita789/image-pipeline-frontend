@@ -1,4 +1,5 @@
 import { cn } from "../lib/utils";
+import { useStorage } from "../hooks/useStorage";
 
 type SidebarView = "my-drive" | "recent";
 
@@ -7,6 +8,13 @@ interface SidebarProps {
   onViewChange: (v: SidebarView) => void;
   onUploadClick: () => void;
   imageCount: number;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(i > 1 ? 1 : 0)} ${units[i]}`;
 }
 
 const NAV_ITEMS: { id: SidebarView; label: string; icon: React.ReactNode }[] = [
@@ -31,7 +39,14 @@ const NAV_ITEMS: { id: SidebarView; label: string; icon: React.ReactNode }[] = [
   },
 ];
 
-export default function Sidebar({ activeView, onViewChange, onUploadClick, imageCount }: SidebarProps) {
+export default function Sidebar({ activeView, onViewChange, onUploadClick }: SidebarProps) {
+  const { data: storage } = useStorage();
+  const DEFAULT_LIMIT = 1024 * 1024 * 1024; // 1 GB
+  const limitBytes = storage?.limitBytes || DEFAULT_LIMIT;
+  const usedBytes = storage?.usedBytes ?? 0;
+  const usedPercent = limitBytes > 0 ? (usedBytes / limitBytes) * 100 : 0;
+  const barColor = usedPercent > 90 ? "bg-red-500" : usedPercent > 70 ? "bg-amber-500" : "bg-blue-500";
+
   return (
     <aside className="w-60 shrink-0 flex flex-col py-3 bg-[#f8f9fa] overflow-y-auto">
       {/* New button */}
@@ -77,10 +92,15 @@ export default function Sidebar({ activeView, onViewChange, onUploadClick, image
           </svg>
           <span className="text-xs text-gray-600 font-medium">Storage</span>
         </div>
-        <p className="text-xs text-gray-500">{imageCount} {imageCount === 1 ? "image" : "images"} stored</p>
+        <p className="text-xs text-gray-500">
+          {`${formatBytes(usedBytes)} of ${formatBytes(limitBytes)} used`}
+        </p>
         <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-          <div className="h-full w-1/3 bg-blue-500 rounded-full" />
+          <div className={`h-full ${barColor} rounded-full transition-all duration-500`} style={{ width: `${Math.min(usedPercent, 100)}%` }} />
         </div>
+        {usedPercent > 90 && (
+          <p className="text-xs text-red-500 mt-1 font-medium">Storage almost full</p>
+        )}
       </div>
     </aside>
   );

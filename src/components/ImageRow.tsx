@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Image } from "../types";
 import { cn } from "../lib/utils";
 
@@ -7,6 +7,8 @@ interface ImageRowProps {
   selected: boolean;
   onSelect: () => void;
   onDeleteClick: () => void;
+  onTransformClick: () => void;
+  onCancelTransform: () => void;
   onClick: () => void;
 }
 
@@ -14,21 +16,38 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export default function ImageRow({ image, selected, onSelect, onDeleteClick, onClick }: ImageRowProps) {
+function useElapsed(active: boolean) {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!active) { setSeconds(0); return; }
+    const id = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, [active]);
+  return seconds;
+}
+
+function formatElapsed(s: number) {
+  if (s < 60) return `${s}s`;
+  return `${Math.floor(s / 60)}m ${s % 60}s`;
+}
+
+export default function ImageRow({ image, selected, onSelect, onDeleteClick, onTransformClick, onCancelTransform, onClick }: ImageRowProps) {
   const [imgError, setImgError] = useState(false);
-  const thumbnail = image.compressedUrl || image.originalUrl;
+  const thumbnail = image.transformedUrl || image.compressedUrl || image.originalUrl;
+  const isProcessing = image.status === "processing";
+  const elapsed = useElapsed(isProcessing);
 
   return (
     <div onClick={onClick} className={cn(
       "group flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer",
       selected ? "bg-blue-50" : "hover:bg-[#f1f3f4]"
     )}>
-      {/* Checkbox */}
+      {/* Checkbox — hidden when processing */}
       <div
-        onClick={(e) => { e.stopPropagation(); onSelect(); }}
+        onClick={(e) => { e.stopPropagation(); if (!isProcessing) onSelect(); }}
         className={cn(
           "shrink-0 transition-opacity",
-          selected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          isProcessing ? "opacity-0 pointer-events-none" : selected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
         )}
       >
         <div className={cn(
@@ -62,10 +81,10 @@ export default function ImageRow({ image, selected, onSelect, onDeleteClick, onC
 
       {/* Status */}
       <div className="w-28 shrink-0">
-        {image.status === "processing"
+        {isProcessing
           ? <span className="inline-flex items-center gap-1.5 text-xs text-amber-700 font-medium">
               <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
-              Processing
+              {formatElapsed(elapsed)}
             </span>
           : <span className="inline-flex items-center gap-1.5 text-xs text-green-700 font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
@@ -76,20 +95,41 @@ export default function ImageRow({ image, selected, onSelect, onDeleteClick, onC
 
       {/* Date */}
       <div className="w-32 shrink-0 text-xs text-gray-500">
-        {image.createdAt ? formatDate(image.createdAt) : "—"}
+        {image.createdAt ? formatDate(image.createdAt) : "\u2014"}
       </div>
 
-      {/* Delete — visible on hover */}
-      <div className="w-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={(e) => { e.stopPropagation(); onDeleteClick(); }}
-          title="Delete"
-          className="w-7 h-7 rounded-full hover:bg-gray-200 text-gray-500 hover:text-red-600 flex items-center justify-center transition-colors"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-          </svg>
-        </button>
+      {/* Actions */}
+      <div className="w-20 flex items-center justify-center gap-1">
+        {isProcessing ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); onCancelTransform(); }}
+            title="Cancel"
+            className="text-xs text-amber-700 hover:text-red-600 font-medium px-2 py-1 rounded-lg hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+          >
+            Cancel
+          </button>
+        ) : (
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={(e) => { e.stopPropagation(); onTransformClick(); }}
+              title="Transform"
+              className="w-7 h-7 rounded-full hover:bg-gray-200 text-gray-500 hover:text-indigo-600 flex items-center justify-center transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/>
+              </svg>
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDeleteClick(); }}
+              title="Delete"
+              className="w-7 h-7 rounded-full hover:bg-gray-200 text-gray-500 hover:text-red-600 flex items-center justify-center transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

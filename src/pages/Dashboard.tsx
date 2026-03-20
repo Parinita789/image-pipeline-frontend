@@ -1,14 +1,18 @@
 import { useCallback, useState } from "react";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useImages } from "../hooks/useImages";
 import { useDeleteImages } from "../hooks/useDeleteImage";
+import { cancelTransform } from "../api/images";
 import ImageCard, { ImageCardSkeleton } from "../components/ImageCard";
 import ImageRow, { ImageRowSkeleton } from "../components/ImageRow";
 import ImagePreview from "../components/ImagePreview";
+import TransformPanel from "../components/TransformPanel";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import UploadModal from "../components/UploadModal";
 import DeleteConfirmModal from "../components/DeleteConfirmModal";
 import { cn } from "../lib/utils";
+import type { Image } from "../types";
 
 type PendingDelete = { id: string; name: string }[];
 
@@ -16,22 +20,29 @@ type ViewMode = "grid" | "list";
 type SidebarView = "my-drive" | "recent";
 
 export default function Dashboard() {
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [showUpload, setShowUpload] = useState(false);
-  const [pollUntil, setPollUntil] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [sidebarView, setSidebarView] = useState<SidebarView>("my-drive");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [transformImage, setTransformImage] = useState<Image | null>(null);
   const { mutate: deleteImages, isPending: isDeleting } = useDeleteImages();
+  const { mutate: cancelTransformMutation } = useMutation({
+    mutationFn: (imageId: string) => cancelTransform(imageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["images"] });
+    },
+  });
   const limit = 20;
 
   // "Recent" = no filter, sorted by date (backend default)
   const effectiveStatus = sidebarView === "recent" ? "" : statusFilter;
-  const { data, isLoading, isError, isFetching } = useImages(page, limit, search, effectiveStatus, pollUntil);
+  const { data, isLoading, isError, isFetching } = useImages(page, limit, search, effectiveStatus);
 
   const images = data?.images ?? [];
   const totalPages = data ? Math.ceil(data.total / limit) : 1;
@@ -42,7 +53,8 @@ export default function Dashboard() {
   }
 
   function handleUploadSuccess() {
-    setPollUntil(Date.now() + 30_000);
+    // Refetch once immediately; the auto-poll will kick in if images are "processing"
+    queryClient.invalidateQueries({ queryKey: ["images"] });
   }
 
   function handleSidebarView(v: SidebarView) {
@@ -223,7 +235,7 @@ export default function Dashboard() {
               <div className="flex-1">Name</div>
               <div className="w-28 shrink-0">Status</div>
               <div className="w-32 shrink-0">Date</div>
-              <div className="w-8 shrink-0" />
+              <div className="w-20 shrink-0" />
             </div>
           )}
 
@@ -262,6 +274,8 @@ export default function Dashboard() {
                   selected={selectedIds.has(image.id)}
                   onSelect={() => toggleSelect(image.id)}
                   onDeleteClick={() => openDeleteModal([{ id: image.id, name: image.filename }])}
+                  onTransformClick={() => setTransformImage(image)}
+                  onCancelTransform={() => cancelTransformMutation(image.id)}
                   onClick={() => openPreview(i)}
                 />
               ))}
@@ -278,6 +292,8 @@ export default function Dashboard() {
                   selected={selectedIds.has(image.id)}
                   onSelect={() => toggleSelect(image.id)}
                   onDeleteClick={() => openDeleteModal([{ id: image.id, name: image.filename }])}
+                  onTransformClick={() => setTransformImage(image)}
+                  onCancelTransform={() => cancelTransformMutation(image.id)}
                   onClick={() => openPreview(i)}
                 />
               ))}
@@ -339,6 +355,13 @@ export default function Dashboard() {
           onClose={closePreview}
           onPrev={previewIndex > 0 ? prevImage : undefined}
           onNext={previewIndex < images.length - 1 ? nextImage : undefined}
+        />
+      )}
+
+      {transformImage && (
+        <TransformPanel
+          image={transformImage}
+          onClose={() => setTransformImage(null)}
         />
       )}
     </div>

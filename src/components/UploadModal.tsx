@@ -123,6 +123,7 @@ export default function UploadModal({ onClose, onUploadSuccess }: UploadModalPro
       // Success — close immediately; dashboard polls for processing → ready transition
       snapshot.forEach((it) => { if (it.preview) URL.revokeObjectURL(it.preview); });
       queryClient.invalidateQueries({ queryKey: ["images"] });
+      queryClient.invalidateQueries({ queryKey: ["storage"] });
       onUploadSuccess();
       onClose();
     } catch {
@@ -140,7 +141,7 @@ export default function UploadModal({ onClose, onUploadSuccess }: UploadModalPro
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
-          <h2 className="text-base font-medium text-gray-800">Upload to ImageDrive</h2>
+          <h2 className="text-base font-medium text-gray-800">Upload to Pixelift</h2>
           <button onClick={onClose} disabled={uploading}
             className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 disabled:opacity-40 transition-colors">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
