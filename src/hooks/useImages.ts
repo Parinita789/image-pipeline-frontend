@@ -2,14 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { getImages } from "../api/images";
 
 export function useImages(
-  page: number,
+  cursor: string,
   limit: number,
   search: string,
-  status: string
+  status: string,
+  refreshKey: number
 ) {
   return useQuery({
-    queryKey: ["images", page, limit, search, status],
-    queryFn: () => getImages(page, limit, search, status),
+    queryKey: ["images", cursor, limit, search, status, refreshKey],
+    queryFn: () => getImages(cursor, limit, search, status),
     refetchInterval: (query) => {
       const images = query.state.data?.images ?? [];
       // Only poll while any image is still processing

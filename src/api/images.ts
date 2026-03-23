@@ -2,8 +2,9 @@ import api from "./axios";
 import axios from "axios";
 import type { APIResponse, Image, PaginatedImages, StorageInfo, TransformConfig } from "../types";
 
-export async function getImages(page = 1, limit = 12, search = "", status = "") {
-  const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+export async function getImages(cursor = "", limit = 20, search = "", status = "") {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (cursor) params.set("cursor", cursor);
   if (search) params.set("search", search);
   if (status) params.set("status", status);
   const res = await api.get<APIResponse<PaginatedImages>>(`/images?${params.toString()}`);

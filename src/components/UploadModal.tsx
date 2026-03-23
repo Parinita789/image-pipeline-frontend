@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
-import { useQueryClient } from "@tanstack/react-query";
 import { prepareUpload, putToS3, confirmUpload, type PreparedFile } from "../api/images";
 import { cn } from "../lib/utils";
 
@@ -34,7 +33,6 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
 }
 
 export default function UploadModal({ onClose, onUploadSuccess }: UploadModalProps) {
-  const queryClient = useQueryClient();
   const [items, setItems] = useState<FileItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadFailed, setUploadFailed] = useState(false);
@@ -121,10 +119,8 @@ export default function UploadModal({ onClose, onUploadSuccess }: UploadModalPro
       const idempotencyKey = crypto.randomUUID();
       await withRetry(() => confirmUpload(confirmedFiles, idempotencyKey));
 
-      // Success — wait for fresh data before closing so the dashboard shows new images immediately
+      // Success — let Dashboard handle the refetch after resetting page/filters
       snapshot.forEach((it) => { if (it.preview) URL.revokeObjectURL(it.preview); });
-      await queryClient.invalidateQueries({ queryKey: ["images"] });
-      await queryClient.invalidateQueries({ queryKey: ["storage"] });
       onUploadSuccess();
       onClose();
     } catch {

@@ -62,7 +62,7 @@ export interface APIResponse<T> {
 export interface PaginatedImages {
   images: Image[] | null;
   total: number;
-  page: number;
+  nextCursor?: string;
   limit: number;
 }
 

@@ -33,8 +33,12 @@ function formatElapsed(s: number) {
 }
 
 export default function ImageRow({ image, selected, onSelect, onDeleteClick, onTransformClick, onCancelTransform, onCancelUpload, onClick }: ImageRowProps) {
-  const [imgError, setImgError] = useState(false);
   const thumbnail = image.transformedUrl || image.compressedUrl || image.originalUrl;
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    setImgError(false);
+  }, [thumbnail]);
   const isProcessing = image.status === "processing";
   const isFailed = image.status === "failed";
   const isUploadProcessing = isProcessing && !image.compressedUrl;

@@ -21,7 +21,8 @@ type SidebarView = "my-drive" | "recent";
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
-  const [page, setPage] = useState(1);
+  const [cursor, setCursor] = useState("");
+  const [cursorStack, setCursorStack] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [showUpload, setShowUpload] = useState(false);
@@ -32,6 +33,7 @@ export default function Dashboard() {
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [transformImage, setTransformImage] = useState<Image | null>(null);
   const [batchTransformIds, setBatchTransformIds] = useState<string[] | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const { mutate: deleteImages, isPending: isDeleting } = useDeleteImages();
   const { mutate: cancelTransformMutation } = useMutation({
     mutationFn: (imageId: string) => cancelTransform(imageId),
@@ -50,25 +52,52 @@ export default function Dashboard() {
 
   // "Recent" = no filter, sorted by date (backend default)
   const effectiveStatus = sidebarView === "recent" ? "" : statusFilter;
-  const { data, isLoading, isError, isFetching } = useImages(page, limit, search, effectiveStatus);
+  const { data, isLoading, isError, isFetching } = useImages(cursor, limit, search, effectiveStatus, refreshKey);
 
   const images = data?.images ?? [];
-  const totalPages = data ? Math.ceil(data.total / limit) : 1;
+  const nextCursor = data?.nextCursor ?? "";
+  const total = data?.total ?? 0;
+  const currentPage = cursorStack.length + 1;
+  const totalPages = Math.ceil(total / limit) || 1;
+  const hasNext = !!nextCursor;
+  const hasPrev = cursorStack.length > 0;
+
+  function goNext() {
+    if (!nextCursor) return;
+    setCursorStack((prev) => [...prev, cursor]);
+    setCursor(nextCursor);
+  }
+
+  function goPrev() {
+    if (cursorStack.length === 0) return;
+    setCursorStack((prev) => {
+      const next = [...prev];
+      const prevCursor = next.pop() ?? "";
+      setCursor(prevCursor);
+      return next;
+    });
+  }
+
+  function resetPagination() {
+    setCursor("");
+    setCursorStack([]);
+  }
 
   function handleSearch(v: string) {
     setSearch(v);
-    setPage(1);
+    resetPagination();
   }
 
   function handleUploadSuccess() {
-    // Reset to page 1 with no filters so newly uploaded (processing) images are visible
-    setPage(1);
+    resetPagination();
     setStatusFilter("");
+    setRefreshKey((k) => k + 1);
+    queryClient.invalidateQueries({ queryKey: ["storage"] });
   }
 
   function handleSidebarView(v: SidebarView) {
     setSidebarView(v);
-    setPage(1);
+    resetPagination();
     setSearch("");
     setStatusFilter("");
     setSelectedIds(new Set());
@@ -123,7 +152,7 @@ export default function Dashboard() {
           activeView={sidebarView}
           onViewChange={handleSidebarView}
           onUploadClick={() => setShowUpload(true)}
-          imageCount={data?.total ?? 0}
+          imageCount={total}
         />
 
         {/* Main content */}
@@ -179,7 +208,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             {/* Breadcrumb */}
             <div className="flex items-center gap-1.5 text-sm text-gray-700">
-              <span className="font-medium">{sidebarView === "recent" ? "Recent" : "My Drive"}</span>
+              <span className="font-medium">{sidebarView === "recent" ? "Recent" : "My Photos"}</span>
               {search && (
                 <>
                   <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -191,11 +220,11 @@ export default function Dashboard() {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Status filter — only on My Drive */}
+              {/* Status filter — only on My Photos */}
               {sidebarView === "my-drive" && (
                 <div className="flex items-center gap-1 mr-2">
                   {([["", "All"], ["processing", "Processing"], ["compressed", "Ready"]] as const).map(([val, label]) => (
-                    <button key={val} onClick={() => { setStatusFilter(val); setPage(1); }}
+                    <button key={val} onClick={() => { setStatusFilter(val); resetPagination(); }}
                       className={cn(
                         "px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
                         statusFilter === val
@@ -320,32 +349,19 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Pagination */}
+          {/* Pagination — Prev / page info / Next */}
           {!isLoading && totalPages > 1 && (
-            <div className="flex items-center justify-center gap-1 mt-8 mb-4">
-              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+            <div className="flex items-center justify-center gap-3 mt-8 mb-4">
+              <button onClick={goPrev} disabled={!hasPrev}
                 className="w-9 h-9 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 disabled:opacity-30 transition-colors">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
-                .reduce<(number | "…")[]>((acc, p, idx, arr) => {
-                  if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push("…");
-                  acc.push(p);
-                  return acc;
-                }, [])
-                .map((p, i) =>
-                  p === "…"
-                    ? <span key={`dots-${i}`} className="w-9 text-center text-sm text-gray-400">…</span>
-                    : <button key={p} onClick={() => setPage(p as number)}
-                        className={cn("w-9 h-9 rounded-full text-sm font-medium transition-colors",
-                          page === p ? "bg-[#c2e7ff] text-[#001d35]" : "text-gray-600 hover:bg-gray-200")}>
-                        {p}
-                      </button>
-                )}
-              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+              <span className="text-sm text-gray-500 tabular-nums">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button onClick={goNext} disabled={!hasNext}
                 className="w-9 h-9 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 disabled:opacity-30 transition-colors">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />

@@ -29,8 +29,13 @@ function formatElapsed(s: number) {
 }
 
 export default function ImageCard({ image, selected, onSelect, onDeleteClick, onTransformClick, onCancelTransform, onCancelUpload, onClick }: ImageCardProps) {
-  const [imgError, setImgError] = useState(false);
   const thumbnail = image.transformedUrl || image.compressedUrl || image.originalUrl;
+  const [imgError, setImgError] = useState(false);
+
+  // Reset error state when the thumbnail URL changes (e.g. compressedUrl becomes available after processing)
+  useEffect(() => {
+    setImgError(false);
+  }, [thumbnail]);
   const isProcessing = image.status === "processing";
   const isFailed = image.status === "failed";
   const isUploadProcessing = isProcessing && !image.compressedUrl;
