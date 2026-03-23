@@ -9,6 +9,7 @@ interface ImageRowProps {
   onDeleteClick: () => void;
   onTransformClick: () => void;
   onCancelTransform: () => void;
+  onCancelUpload: () => void;
   onClick: () => void;
 }
 
@@ -31,10 +32,12 @@ function formatElapsed(s: number) {
   return `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 
-export default function ImageRow({ image, selected, onSelect, onDeleteClick, onTransformClick, onCancelTransform, onClick }: ImageRowProps) {
+export default function ImageRow({ image, selected, onSelect, onDeleteClick, onTransformClick, onCancelTransform, onCancelUpload, onClick }: ImageRowProps) {
   const [imgError, setImgError] = useState(false);
   const thumbnail = image.transformedUrl || image.compressedUrl || image.originalUrl;
   const isProcessing = image.status === "processing";
+  const isFailed = image.status === "failed";
+  const isUploadProcessing = isProcessing && !image.compressedUrl;
   const elapsed = useElapsed(isProcessing);
 
   return (
@@ -42,12 +45,12 @@ export default function ImageRow({ image, selected, onSelect, onDeleteClick, onT
       "group flex items-center gap-3 px-4 py-2.5 rounded-xl transition-colors cursor-pointer",
       selected ? "bg-blue-50" : "hover:bg-[#f1f3f4]"
     )}>
-      {/* Checkbox — hidden when processing */}
+      {/* Checkbox — hidden when processing/failed */}
       <div
-        onClick={(e) => { e.stopPropagation(); if (!isProcessing) onSelect(); }}
+        onClick={(e) => { e.stopPropagation(); if (!isProcessing && !isFailed) onSelect(); }}
         className={cn(
           "shrink-0 transition-opacity",
-          isProcessing ? "opacity-0 pointer-events-none" : selected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+          (isProcessing || isFailed) ? "opacity-0 pointer-events-none" : selected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
         )}
       >
         <div className={cn(
@@ -86,6 +89,11 @@ export default function ImageRow({ image, selected, onSelect, onDeleteClick, onT
               <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
               {formatElapsed(elapsed)}
             </span>
+          : isFailed
+          ? <span className="inline-flex items-center gap-1.5 text-xs text-red-600 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-500 inline-block" />
+              Failed
+            </span>
           : <span className="inline-flex items-center gap-1.5 text-xs text-green-700 font-medium">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
               Ready
@@ -102,11 +110,19 @@ export default function ImageRow({ image, selected, onSelect, onDeleteClick, onT
       <div className="w-20 flex items-center justify-center gap-1">
         {isProcessing ? (
           <button
-            onClick={(e) => { e.stopPropagation(); onCancelTransform(); }}
+            onClick={(e) => { e.stopPropagation(); isUploadProcessing ? onCancelUpload() : onCancelTransform(); }}
             title="Cancel"
             className="text-xs text-amber-700 hover:text-red-600 font-medium px-2 py-1 rounded-lg hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
           >
             Cancel
+          </button>
+        ) : isFailed ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDeleteClick(); }}
+            title="Remove"
+            className="text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded-lg hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+          >
+            Remove
           </button>
         ) : (
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -118,12 +118,13 @@ export default function UploadModal({ onClose, onUploadSuccess }: UploadModalPro
 
       // ── Step 3: Confirm — tell the API which files landed in S3 ──────────────
       // Retry with backoff to handle transient failures (covers "tab-closed" scenario).
-      await withRetry(() => confirmUpload(confirmedFiles, crypto.randomUUID()));
+      const idempotencyKey = crypto.randomUUID();
+      await withRetry(() => confirmUpload(confirmedFiles, idempotencyKey));
 
-      // Success — close immediately; dashboard polls for processing → ready transition
+      // Success — wait for fresh data before closing so the dashboard shows new images immediately
       snapshot.forEach((it) => { if (it.preview) URL.revokeObjectURL(it.preview); });
-      queryClient.invalidateQueries({ queryKey: ["images"] });
-      queryClient.invalidateQueries({ queryKey: ["storage"] });
+      await queryClient.invalidateQueries({ queryKey: ["images"] });
+      await queryClient.invalidateQueries({ queryKey: ["storage"] });
       onUploadSuccess();
       onClose();
     } catch {

@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from "react";
 import { useAuthStore } from "../store/authStore";
 import { useNavigate } from "react-router-dom";
 
@@ -11,6 +12,18 @@ export default function Navbar({ searchValue, onSearch }: NavbarProps) {
   const firstName = useAuthStore((s) => s.firstName);
   const navigate = useNavigate();
   const initial = (firstName ?? "U")[0].toUpperCase();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    if (menuOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [menuOpen]);
 
   return (
     <header className="h-16 flex items-center gap-3 px-4 bg-[#f8f9fa] border-b border-[#e0e0e0] shrink-0">
@@ -52,20 +65,43 @@ export default function Navbar({ searchValue, onSearch }: NavbarProps) {
         </div>
       </div>
 
-      {/* User avatar */}
-      <div className="ml-auto flex items-center gap-2">
+      {/* User avatar + dropdown */}
+      <div className="ml-auto relative" ref={menuRef}>
         <button
-          onClick={() => { logout(); navigate("/login"); }}
+          onClick={() => setMenuOpen((v) => !v)}
           className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm text-gray-600 hover:bg-gray-200 transition-colors"
-          title="Sign out"
         >
           <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium select-none">
             {initial}
           </div>
           <svg className="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
           </svg>
         </button>
+
+        {menuOpen && (
+          <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-1.5 z-50 animate-[fadeIn_0.15s_ease-out]">
+            <button
+              onClick={() => { setMenuOpen(false); navigate("/change-password"); }}
+              className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
+              </svg>
+              Change password
+            </button>
+            <div className="h-px bg-gray-100 mx-3 my-1" />
+            <button
+              onClick={() => { setMenuOpen(false); logout(); navigate("/login"); }}
+              className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+            >
+              <svg className="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Sign out
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

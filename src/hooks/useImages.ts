@@ -14,7 +14,7 @@ export function useImages(
       const images = query.state.data?.images ?? [];
       // Only poll while any image is still processing
       return (images ?? []).some((img) => img.status === "processing")
-        ? 5000
+        ? 2000
         : false;
     },
   });

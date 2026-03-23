@@ -1,6 +1,6 @@
 import api from "./axios";
 import axios from "axios";
-import type { APIResponse, Image, PaginatedImages, StorageInfo } from "../types";
+import type { APIResponse, Image, PaginatedImages, StorageInfo, TransformConfig } from "../types";
 
 export async function getImages(page = 1, limit = 12, search = "", status = "") {
   const params = new URLSearchParams({ page: String(page), limit: String(limit) });
@@ -68,8 +68,48 @@ export async function batchDeleteImages(ids: string[]) {
 
 // ─── Transforms ─────────────────────────────────────────────────────────────
 
-export async function transformImage(imageId: string, transformations: string[]) {
+export async function transformImage(imageId: string, transformations: TransformConfig[]) {
   const res = await api.post<APIResponse<Image>>(`/images/${imageId}/transform`, { transformations });
+  return res.data;
+}
+
+export type BatchSyncResult = { succeeded: { id: string; error?: string }[]; failed: { id: string; error?: string }[] };
+export type BatchAsyncResult = { batchId: string; total: number };
+export type BatchResult = BatchSyncResult | BatchAsyncResult;
+
+function isAsyncResult(data: BatchResult): data is BatchAsyncResult {
+  return "batchId" in data;
+}
+
+export { isAsyncResult };
+
+export async function batchTransformImages(ids: string[], transformations: TransformConfig[]): Promise<BatchResult> {
+  const res = await api.post<APIResponse<BatchResult>>("/images/batch-transform", { ids, transformations });
+  return res.data.data!;
+}
+
+export async function batchRevertTransform(ids: string[]): Promise<BatchResult> {
+  const res = await api.post<APIResponse<BatchResult>>("/images/batch-revert-transform", { ids });
+  return res.data.data!;
+}
+
+export interface BatchStatus {
+  id: string;
+  type: string;
+  total: number;
+  completed: number;
+  failed: number;
+  status: "processing" | "completed" | "partial" | "failed";
+  errors?: { imageId: string; error: string }[];
+}
+
+export async function getBatchStatus(batchId: string) {
+  const res = await api.get<APIResponse<BatchStatus>>(`/batches/${batchId}`);
+  return res.data.data;
+}
+
+export async function revertTransform(imageId: string) {
+  const res = await api.post<APIResponse<Image>>(`/images/${imageId}/revert-transform`);
   return res.data;
 }
 

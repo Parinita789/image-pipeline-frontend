@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import type { Image } from "../types";
+import type { Image, ProcessingStep } from "../types";
+import BeforeAfterSlider from "./BeforeAfterSlider";
+
+type ViewMode = "edited" | "original" | "compare";
 
 interface ImagePreviewProps {
   image: Image;
@@ -10,8 +13,16 @@ interface ImagePreviewProps {
 
 export default function ImagePreview({ image, onClose, onPrev, onNext }: ImagePreviewProps) {
   const hasTransform = !!image.transformedUrl;
-  const [showOriginal, setShowOriginal] = useState(false);
-  const src = hasTransform && !showOriginal ? image.transformedUrl! : (image.compressedUrl || image.originalUrl);
+  const [viewMode, setViewMode] = useState<ViewMode>("edited");
+
+  // Reset view mode when image changes
+  useEffect(() => {
+    setViewMode("edited");
+  }, [image.id]);
+
+  const originalSrc = image.compressedUrl || image.originalUrl;
+  const editedSrc = hasTransform ? image.transformedUrl! : originalSrc;
+  const displaySrc = viewMode === "original" ? originalSrc : editedSrc;
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -61,11 +72,17 @@ export default function ImagePreview({ image, onClose, onPrev, onNext }: ImagePr
 
       {/* Image */}
       <div className="max-w-[90vw] max-h-[90vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
-        {src ? (
+        {viewMode === "compare" && hasTransform ? (
+          <BeforeAfterSlider
+            beforeSrc={originalSrc}
+            afterSrc={editedSrc}
+            className="max-w-full shadow-2xl"
+          />
+        ) : displaySrc ? (
           <img
-            src={src}
+            src={displaySrc}
             alt={image.filename}
-            className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+            className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-2xl"
           />
         ) : (
           <div className="w-64 h-64 flex items-center justify-center bg-gray-800 rounded-lg">
@@ -79,25 +96,73 @@ export default function ImagePreview({ image, onClose, onPrev, onNext }: ImagePr
         <p className="mt-3 text-sm text-white/70 truncate max-w-md">{image.filename}</p>
         {image.transformations && image.transformations.length > 0 && (
           <div className="flex items-center gap-2 mt-2">
-            {image.transformations.map((t) => (
-              <span key={t} className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/80 font-medium">{t}</span>
+            {image.transformations.map((t, i) => (
+              <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/80 font-medium">{t.type}</span>
             ))}
           </div>
         )}
+
+        {/* View mode switcher */}
         {hasTransform && (
-          <div className="flex gap-3 mt-2">
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowOriginal(false); }}
-              className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${!showOriginal ? "bg-white/20 text-white" : "text-white/50 hover:text-white/80"}`}
-            >
-              Edited
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowOriginal(true); }}
-              className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${showOriginal ? "bg-white/20 text-white" : "text-white/50 hover:text-white/80"}`}
-            >
-              Original
-            </button>
+          <div className="flex gap-1 mt-2 bg-white/10 rounded-full p-1">
+            {([
+              { mode: "edited" as const, label: "Edited" },
+              { mode: "original" as const, label: "Original" },
+              { mode: "compare" as const, label: "Compare", icon: true },
+            ]).map(({ mode, label, icon }) => (
+              <button
+                key={mode}
+                onClick={(e) => { e.stopPropagation(); setViewMode(mode); }}
+                className={`text-xs px-3 py-1 rounded-full font-medium transition-colors flex items-center gap-1.5 ${
+                  viewMode === mode
+                    ? "bg-white/20 text-white"
+                    : "text-white/50 hover:text-white/80"
+                }`}
+              >
+                {icon && (
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l-3 3 3 3m8-6l3 3-3 3" />
+                  </svg>
+                )}
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Compact processing timeline */}
+        {image.processingHistory && image.processingHistory.length > 0 && (
+          <div className="flex items-center gap-1 mt-3">
+            {image.processingHistory.map((step: ProcessingStep, i: number) => {
+              const colors: Record<string, string> = {
+                uploaded: "bg-blue-400", compressed: "bg-green-400",
+                transformed: "bg-purple-400", reverted: "bg-amber-400",
+              };
+              const labels: Record<string, string> = {
+                uploaded: "Raw", compressed: "Compressed",
+                transformed: "Transformed", reverted: "Reverted",
+              };
+              const isLast = i === image.processingHistory!.length - 1;
+              const sizeStr = step.sizeBytes > 0
+                ? step.sizeBytes >= 1048576 ? `${(step.sizeBytes / 1048576).toFixed(1)} MB` : `${(step.sizeBytes / 1024).toFixed(0)} KB`
+                : "";
+              return (
+                <div key={i} className="flex items-center gap-1">
+                  <div className="flex flex-col items-center">
+                    <div className={`px-2 py-1 rounded-md ${colors[step.step] || "bg-gray-400"} text-white text-[10px] font-medium whitespace-nowrap`}>
+                      {labels[step.step] || step.step}
+                      {sizeStr && <span className="ml-1 opacity-80">{sizeStr}</span>}
+                      {step.durationMs > 0 && <span className="ml-1 opacity-70">{step.durationMs < 1000 ? `${step.durationMs}ms` : `${(step.durationMs / 1000).toFixed(1)}s`}</span>}
+                    </div>
+                  </div>
+                  {!isLast && (
+                    <svg className="w-3 h-3 text-white/40 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

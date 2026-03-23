@@ -9,6 +9,7 @@ interface ImageCardProps {
   onDeleteClick: () => void;
   onTransformClick: () => void;
   onCancelTransform: () => void;
+  onCancelUpload: () => void;
   onClick: () => void;
 }
 
@@ -27,10 +28,12 @@ function formatElapsed(s: number) {
   return `${Math.floor(s / 60)}m ${s % 60}s`;
 }
 
-export default function ImageCard({ image, selected, onSelect, onDeleteClick, onTransformClick, onCancelTransform, onClick }: ImageCardProps) {
+export default function ImageCard({ image, selected, onSelect, onDeleteClick, onTransformClick, onCancelTransform, onCancelUpload, onClick }: ImageCardProps) {
   const [imgError, setImgError] = useState(false);
   const thumbnail = image.transformedUrl || image.compressedUrl || image.originalUrl;
   const isProcessing = image.status === "processing";
+  const isFailed = image.status === "failed";
+  const isUploadProcessing = isProcessing && !image.compressedUrl;
   const elapsed = useElapsed(isProcessing);
 
   return (
@@ -61,7 +64,7 @@ export default function ImageCard({ image, selected, onSelect, onDeleteClick, on
         )}
 
         {/* Hover overlay with actions */}
-        {!isProcessing && (
+        {!isProcessing && !isFailed && (
           <div className="img-overlay absolute inset-0 bg-black/30 flex items-end justify-between p-2">
             {/* Preview button — left side */}
             <button
@@ -97,8 +100,8 @@ export default function ImageCard({ image, selected, onSelect, onDeleteClick, on
           </div>
         )}
 
-        {/* Checkbox — visible on hover or when selected, hidden when processing */}
-        {!isProcessing && (
+        {/* Checkbox — visible on hover or when selected, hidden when processing/failed */}
+        {!isProcessing && !isFailed && (
           <div
             onClick={(e) => { e.stopPropagation(); onSelect(); }}
             className={cn(
@@ -128,10 +131,26 @@ export default function ImageCard({ image, selected, onSelect, onDeleteClick, on
             </svg>
             <span className="text-xs text-white font-medium">Processing {formatElapsed(elapsed)}</span>
             <button
-              onClick={(e) => { e.stopPropagation(); onCancelTransform(); }}
+              onClick={(e) => { e.stopPropagation(); isUploadProcessing ? onCancelUpload() : onCancelTransform(); }}
               className="mt-1 px-3 py-1 text-xs font-medium text-white bg-white/20 hover:bg-white/30 rounded-full backdrop-blur-sm transition-colors"
             >
               Cancel
+            </button>
+          </div>
+        )}
+
+        {/* Failed overlay */}
+        {isFailed && (
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex flex-col items-center justify-center gap-2">
+            <svg className="w-6 h-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+            <span className="text-xs text-white font-medium">Failed</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); onDeleteClick(); }}
+              className="mt-1 px-3 py-1 text-xs font-medium text-white bg-red-500/70 hover:bg-red-500/90 rounded-full backdrop-blur-sm transition-colors"
+            >
+              Remove
             </button>
           </div>
         )}
@@ -147,8 +166,8 @@ export default function ImageCard({ image, selected, onSelect, onDeleteClick, on
         </div>
         {image.transformations && image.transformations.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-1.5">
-            {image.transformations.map((t) => (
-              <span key={t} className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">{t}</span>
+            {image.transformations.map((t, i) => (
+              <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">{t.type}</span>
             ))}
           </div>
         )}

@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useImages } from "../hooks/useImages";
 import { useDeleteImages } from "../hooks/useDeleteImage";
-import { cancelTransform } from "../api/images";
+import { cancelTransform, deleteImage } from "../api/images";
 import ImageCard, { ImageCardSkeleton } from "../components/ImageCard";
 import ImageRow, { ImageRowSkeleton } from "../components/ImageRow";
 import ImagePreview from "../components/ImagePreview";
@@ -31,11 +31,19 @@ export default function Dashboard() {
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [transformImage, setTransformImage] = useState<Image | null>(null);
+  const [batchTransformIds, setBatchTransformIds] = useState<string[] | null>(null);
   const { mutate: deleteImages, isPending: isDeleting } = useDeleteImages();
   const { mutate: cancelTransformMutation } = useMutation({
     mutationFn: (imageId: string) => cancelTransform(imageId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["images"] });
+    },
+  });
+  const { mutate: cancelUploadMutation } = useMutation({
+    mutationFn: (imageId: string) => deleteImage(imageId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["images"] });
+      queryClient.invalidateQueries({ queryKey: ["storage"] });
     },
   });
   const limit = 20;
@@ -53,8 +61,9 @@ export default function Dashboard() {
   }
 
   function handleUploadSuccess() {
-    // Refetch once immediately; the auto-poll will kick in if images are "processing"
-    queryClient.invalidateQueries({ queryKey: ["images"] });
+    // Reset to page 1 with no filters so newly uploaded (processing) images are visible
+    setPage(1);
+    setStatusFilter("");
   }
 
   function handleSidebarView(v: SidebarView) {
@@ -140,6 +149,15 @@ export default function Dashboard() {
                     Select all {images.length}
                   </button>
                 )}
+                <button
+                  onClick={() => setBatchTransformIds(Array.from(selectedIds))}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-indigo-500 hover:bg-indigo-600 rounded-lg transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                  </svg>
+                  Transform
+                </button>
                 <button
                   onClick={() => openDeleteModal(
                     images
@@ -276,6 +294,7 @@ export default function Dashboard() {
                   onDeleteClick={() => openDeleteModal([{ id: image.id, name: image.filename }])}
                   onTransformClick={() => setTransformImage(image)}
                   onCancelTransform={() => cancelTransformMutation(image.id)}
+                  onCancelUpload={() => cancelUploadMutation(image.id)}
                   onClick={() => openPreview(i)}
                 />
               ))}
@@ -294,6 +313,7 @@ export default function Dashboard() {
                   onDeleteClick={() => openDeleteModal([{ id: image.id, name: image.filename }])}
                   onTransformClick={() => setTransformImage(image)}
                   onCancelTransform={() => cancelTransformMutation(image.id)}
+                  onCancelUpload={() => cancelUploadMutation(image.id)}
                   onClick={() => openPreview(i)}
                 />
               ))}
@@ -362,6 +382,13 @@ export default function Dashboard() {
         <TransformPanel
           image={transformImage}
           onClose={() => setTransformImage(null)}
+        />
+      )}
+
+      {batchTransformIds && (
+        <TransformPanel
+          imageIds={batchTransformIds}
+          onClose={() => { setBatchTransformIds(null); clearSelection(); }}
         />
       )}
     </div>

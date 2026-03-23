@@ -1,14 +1,23 @@
+export interface ProcessingStep {
+  step: "uploaded" | "compressed" | "transformed" | "reverted";
+  sizeBytes: number;
+  durationMs: number;
+  detail?: string;
+  timestamp: string;
+}
+
 export interface Image {
   id: string;
   userId: string;
   filename: string;
   originalUrl: string;
   compressedUrl: string;
-  transformations?: string[];
+  transformations?: TransformConfig[];
   transformedUrl?: string;
   originalSize: number;
   compressedSize: number;
-  status: "processing" | "compressed";
+  processingHistory?: ProcessingStep[];
+  status: "processing" | "compressed" | "failed";
   createdAt: string;
 }
 
@@ -27,7 +36,21 @@ export interface StorageInfo {
   usedPercent: number;
 }
 
-export type TransformType = "grayscale" | "sepia" | "blur" | "sharpen" | "invert";
+export type TransformType = "grayscale" | "sepia" | "blur" | "sharpen" | "invert" | "remove-bg" | "resize" | "crop" | "watermark" | "format";
+
+export type WatermarkPosition = "bottom-right" | "bottom-left" | "top-right" | "top-left";
+
+export interface TransformConfig {
+  type: TransformType;
+  width?: number;
+  height?: number;
+  x?: number;
+  y?: number;
+  text?: string;
+  format?: "jpeg" | "png";
+  position?: WatermarkPosition;
+  logoUrl?: string;
+}
 
 export interface APIResponse<T> {
   status: string;
