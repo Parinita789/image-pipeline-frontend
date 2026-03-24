@@ -229,7 +229,7 @@ export default function TransformPanel({ image, imageIds, onClose }: TransformPa
     });
   }
 
-  const src = image ? (image.compressedUrl || image.originalUrl) : "";
+  const src = image ? (image.compressedUrl || "") : "";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>

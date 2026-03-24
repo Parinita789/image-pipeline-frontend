@@ -33,7 +33,7 @@ function formatElapsed(s: number) {
 }
 
 export default function ImageRow({ image, selected, onSelect, onDeleteClick, onTransformClick, onCancelTransform, onCancelUpload, onClick }: ImageRowProps) {
-  const thumbnail = image.transformedUrl || image.compressedUrl || image.originalUrl;
+  const thumbnail = image.transformedUrl || image.compressedUrl;
   const [imgError, setImgError] = useState(false);
 
   useEffect(() => {

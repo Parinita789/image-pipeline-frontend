@@ -20,7 +20,7 @@ export default function ImagePreview({ image, onClose, onPrev, onNext }: ImagePr
     setViewMode("edited");
   }, [image.id]);
 
-  const originalSrc = image.compressedUrl || image.originalUrl;
+  const originalSrc = image.compressedUrl || "";
   const editedSrc = hasTransform ? image.transformedUrl! : originalSrc;
   const displaySrc = viewMode === "original" ? originalSrc : editedSrc;
 
